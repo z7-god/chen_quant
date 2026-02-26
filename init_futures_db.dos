@@ -1,0 +1,29 @@
+// DolphinDB 脚本：创建期货行情数据库和表
+
+// 1. 定义数据库路径和表名
+dbPath = "dfs://futures_db"
+tableName = "daily_market"
+
+// 2. 创建数据库 (按月分区)
+if(!existsDatabase(dbPath)){
+    db = database(dbPath, VALUE, 2020.01M..2030.12M)
+    print("Database created: " + dbPath)
+}
+
+// 3. 定义表结构 (Schema)
+// 注意：这里的列名应与 Tushare 返回的列名一致
+schema = table(
+    1:0, 
+    `ts_code`symbol`trade_date`date`open`double`high`double`low`double`close`double`pre_close`double`change`double`pct_chg`double`vol`double`amount`double`oi`double`oi_chg`double,
+    [SYMBOL, DATE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE]
+)
+
+// 4. 创建分区表
+if(!existsTable(dbPath, tableName)){
+    db = database(dbPath)
+    db.createPartitionedTable(schema, tableName, `trade_date)
+    print("Table created: " + tableName)
+}
+
+// 5. 查询示例
+// select * from loadTable("dfs://futures_db", "daily_market") limit 10

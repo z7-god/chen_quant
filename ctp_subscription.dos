@@ -1,0 +1,58 @@
+// DolphinDB CTP 插件使用示例
+
+// 1. 加载 CTP 插件
+// 注意：请确保插件文件 libPluginCTP.so (Linux) 或 PluginCTP.dll (Windows) 在 plugins 目录下
+try {
+    loadPlugin("CTP")
+} catch(ex) {
+    print("CTP plugin already loaded or failed to load: " + ex)
+}
+
+// 2. 定义行情接收表 (Stream Table)
+// CTP 行情字段较多，这里定义常用的字段
+share streamTable(1000:0, 
+    `InstrumentID`UpdateTime`UpdateMillisec`LastPrice`Volume`Turnover`OpenInterest`BidPrice1`BidVolume1`AskPrice1`AskVolume1`UpperLimitPrice`LowerLimitPrice, 
+    [SYMBOL, TIME, INT, DOUBLE, INT, DOUBLE, DOUBLE, DOUBLE, INT, DOUBLE, INT, DOUBLE, DOUBLE]
+) as ctpMarketData
+
+// 3. 配置 CTP 连接参数
+// 请替换为您的期货公司提供的实际参数
+config = dict(STRING, ANY)
+config["marketFront"] = "tcp://180.168.146.187:10131" // 示例：上期所模拟环境
+config["brokerID"] = "9999"
+config["userID"] = "your_user_id"
+config["password"] = "your_password"
+
+// 4. 创建 CTP 连接并订阅
+// ctp::connect(config, handler)
+// handler 可以是一个函数或一个表，这里直接写入流表
+conn = ctp::connect(config, ctpMarketData)
+
+// 5. 订阅具体合约
+// 订阅单个合约
+ctp::subscribe(conn, "rb2405")
+// 订阅多个合约
+ctp::subscribe(conn, ["rb2405", "i2405", "m2405"])
+
+// 6. (可选) 将流表数据持久化到 DFS 数据库
+dbPath = "dfs://ctp_data"
+tableName = "tick_data"
+if(!existsDatabase(dbPath)){
+    db = database(dbPath, VALUE, 2023.01.01..2030.12.31)
+}
+if(!existsTable(dbPath, tableName)){
+    db = database(dbPath)
+    db.createPartitionedTable(ctpMarketData, tableName, `UpdateTime)
+}
+
+// 订阅流表并保存到 DFS
+subscribeTable(tableName="ctpMarketData", actionName="saveToDFS", offset=0, handler=loadTable(dbPath, tableName), msgAsTable=true)
+
+print("CTP subscription started.")
+
+/* 
+常用命令：
+- 查看连接状态：ctp::getStatus(conn)
+- 取消订阅：ctp::unsubscribe(conn, "rb2405")
+- 断开连接：ctp::close(conn)
+*/
